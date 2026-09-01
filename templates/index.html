@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Local RAG Assistant — Philosophy</title>
+<style>
+  :root {
+    --paper: #ede9e0;
+    --paper-raised: #f5f2ea;
+    --ink: #1f1b16;
+    --ink-soft: #5a5348;
+    --rule: #d8d2c4;
+    --accent: #7a2e2e;
+    --accent-soft: #a95a5a;
+  }
+ 
+  * { box-sizing: border-box; }
+ 
+  body {
+    margin: 0;
+    min-height: 100vh;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: Georgia, "Iowan Old Style", "Times New Roman", serif;
+    display: flex;
+    justify-content: center;
+    padding: 64px 24px 96px;
+  }
+ 
+  main {
+    width: 100%;
+    max-width: 640px;
+  }
+ 
+  .eyebrow {
+    font-family: -apple-system, "Helvetica Neue", Arial, sans-serif;
+    font-size: 12px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 10px;
+  }
+ 
+  h1 {
+    font-size: 34px;
+    font-weight: 400;
+    line-height: 1.2;
+    margin: 0 0 40px;
+    letter-spacing: -0.01em;
+    border-bottom: 1px solid var(--rule);
+    padding-bottom: 32px;
+  }
+ 
+  form {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 8px;
+  }
+ 
+  input[type="text"] {
+    flex: 1;
+    font-family: inherit;
+    font-size: 17px;
+    padding: 14px 16px;
+    background: var(--paper-raised);
+    border: 1px solid var(--rule);
+    border-radius: 3px;
+    color: var(--ink);
+  }
+ 
+  input[type="text"]:focus {
+    outline: none;
+    border-color: var(--accent-soft);
+    box-shadow: 0 0 0 3px rgba(122, 46, 46, 0.12);
+  }
+ 
+  button {
+    font-family: -apple-system, "Helvetica Neue", Arial, sans-serif;
+    font-size: 14px;
+    letter-spacing: 0.02em;
+    background: var(--accent);
+    color: var(--paper-raised);
+    border: none;
+    border-radius: 3px;
+    padding: 0 22px;
+    cursor: pointer;
+    transition: background 0.15s ease;
+  }
+ 
+  button:hover { background: var(--accent-soft); }
+  button:disabled { background: var(--ink-soft); cursor: default; }
+ 
+  button:focus-visible,
+  input:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+ 
+  .hint {
+    font-family: -apple-system, "Helvetica Neue", Arial, sans-serif;
+    font-size: 12px;
+    color: var(--ink-soft);
+    margin: 10px 0 40px;
+  }
+ 
+  #result { display: none; }
+ 
+  .answer-block {
+    background: var(--paper-raised);
+    border-left: 3px solid var(--accent);
+    border-radius: 3px;
+    padding: 24px 26px;
+    font-size: 18px;
+    line-height: 1.65;
+  }
+ 
+  .sources {
+    margin-top: 28px;
+  }
+ 
+  .sources-label {
+    font-family: -apple-system, "Helvetica Neue", Arial, sans-serif;
+    font-size: 11px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+    margin-bottom: 12px;
+  }
+ 
+  .source {
+    display: flex;
+    gap: 14px;
+    padding: 12px 0;
+    border-top: 1px solid var(--rule);
+    font-size: 14px;
+    color: var(--ink-soft);
+    line-height: 1.5;
+  }
+ 
+  .source-score {
+    font-family: -apple-system, "Helvetica Neue", Arial, sans-serif;
+    font-size: 11px;
+    color: var(--accent);
+    white-space: nowrap;
+    padding-top: 2px;
+  }
+ 
+  .loading {
+    font-family: -apple-system, "Helvetica Neue", Arial, sans-serif;
+    font-size: 13px;
+    color: var(--ink-soft);
+    display: none;
+  }
+ 
+  .error {
+    color: var(--accent);
+    font-family: -apple-system, "Helvetica Neue", Arial, sans-serif;
+    font-size: 13px;
+    display: none;
+  }
+</style>
+</head>
+<body>
+<main>
+  <div class="eyebrow">Local RAG Assistant</div>
+  <h1>Philosophical AI</h1>
+ 
+  <form id="ask-form">
+    <input
+      type="text"
+      id="question"
+      placeholder="Ask something about Camus, free will or Virgina Woolf"
+      autocomplete="off"
+    />
+    <button type="submit" id="submit-btn">Ask</button>
+  </form>
+ 
+  <p class="loading" id="loading">Thinking…</p>
+  <p class="error" id="error"></p>
+ 
+  <div id="result">
+    <div class="answer-block" id="answer"></div>
+    <div class="sources" id="sources-wrap" style="display:none;">
+      <div class="sources-label">Retrieved from</div>
+      <div id="sources"></div>
+    </div>
+  </div>
+</main>
+ 
+<script>
+  const form = document.getElementById("ask-form");
+  const input = document.getElementById("question");
+  const submitBtn = document.getElementById("submit-btn");
+  const loading = document.getElementById("loading");
+  const errorEl = document.getElementById("error");
+  const result = document.getElementById("result");
+  const answerEl = document.getElementById("answer");
+  const sourcesWrap = document.getElementById("sources-wrap");
+  const sourcesEl = document.getElementById("sources");
+ 
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const question = input.value.trim();
+    if (!question) return;
+ 
+    errorEl.style.display = "none";
+    result.style.display = "none";
+    loading.style.display = "block";
+    submitBtn.disabled = true;
+ 
+    try {
+      const res = await fetch("/ask", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ question }),
+      });
+ 
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || "Something went wrong.");
+      }
+ 
+      const data = await res.json();
+      answerEl.textContent = data.answer;
+ 
+      if (data.sources && data.sources.length > 0) {
+        sourcesEl.innerHTML = "";
+        data.sources.forEach((s) => {
+          const row = document.createElement("div");
+          row.className = "source";
+          row.innerHTML = `
+            <span class="source-score">${s.score.toFixed(3)}</span>
+            <span>${s.content}</span>
+          `;
+          sourcesEl.appendChild(row);
+        });
+        sourcesWrap.style.display = "block";
+      } else {
+        sourcesWrap.style.display = "none";
+      }
+ 
+      result.style.display = "block";
+    } catch (err) {
+      errorEl.textContent = err.message;
+      errorEl.style.display = "block";
+    } finally {
+      loading.style.display = "none";
+      submitBtn.disabled = false;
+    }
+  });
+</script>
+</body>
+</html>
+ 
+
+
+
