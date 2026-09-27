@@ -1,5 +1,7 @@
 # Local RAG Assistant — Philosophical AI
 
+Video in which i explained my project in two minutes: https://drive.google.com/file/d/1-MKy2HqiwQmMc6RVtT-MzKhLp0SDQpeP/view?usp=drive_link
+
 An offline Retrieval-Augmented Generation (RAG) Q&A system that answers
 questions about Albert Camus, free will, and Virginia Woolf using a local
 knowledge base and a fully on-device language model — no internet
