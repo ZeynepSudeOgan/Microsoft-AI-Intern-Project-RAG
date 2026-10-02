@@ -76,7 +76,7 @@ local-rag-assistant/
 ├── app.py            # Web version — Flask backend (POST /ask)
 ├── templates/
 │   └── index.html    # Web frontend
-└── rag.db             # SQLite database (created by embed.py)
+└── rag.db             # (created by embed.py, not tracked in git)
 ```
 
 ---
@@ -147,20 +147,18 @@ model on first run.
 
 ---
 
-## Testing notes
+During this process, four issues were found and fixed:
 
-The system was manually tested with three categories of questions —
-answerable from the knowledge base, unrelated (e.g. "What is the capital
-of France?"), and cross-topic questions designed to invite hallucination
-(e.g. "What did Camus think of Virginia Woolf?"). During this process,
-three issues were found and fixed:
-
-1. **Hallucination**: the model added invented details beyond the given
-   context. Fixed with a stricter system prompt and a similarity
-   threshold that bypasses the LLM entirely for low-relevance queries.
-2. **Retrieved chunk excluded by top-k limit**: a relevant chunk ranked
-   just outside the top 2 retrieved chunks. Fixed by increasing `k`.
-3. **Inconsistent fallback formatting**: the model sometimes added its
-   own explanation before the fallback sentence instead of returning it
-   verbatim. Fixed by making the "no outside content" instruction more
-   explicit in the system prompt.
+1. **Hallucination**: the model added invented details and leaked outside
+   knowledge (e.g. "The answer is Paris"). Fixed with a stricter system
+   prompt and a similarity threshold (0.4) that bypasses the LLM for
+   low-relevance queries.
+2. **Retrieved chunk excluded by top-k limit**: for "Is free will an
+   illusion?", the correct chunk ranked 3rd (score 0.6031), just behind
+   the top 2. Fixed by increasing `k` from 2 to 3.
+3. **Over-strict prompt**: even with the right chunk retrieved, the model
+   refused because the chunk never used the word "illusion". Fixed by
+   allowing the model to reason from meaning, not exact wording.
+4. **Inconsistent fallback formatting**: the model sometimes added its own
+   explanation before the fallback sentence. Fixed by requiring the entire
+   response to be exactly that sentence, with nothing before or after.
